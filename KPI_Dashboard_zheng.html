@@ -511,27 +511,24 @@ const clsColorMap = {
 // ══════════════════════════════════════════════════════
 // EMAILS
 // ══════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwG_-u3O6MW_sVk9WR8GwYN-yD6UhSr0VHHXRCH7FaWFIexneX9jDNYdFvXbVIN1TY/exec';
+const GAS_URL = 'https://rapid-bonus-2628.oliviahuang.workers.dev/';
 let EMAILS = [];
 
-function loadEmails(){
+async function loadEmails(){
   const meta = document.getElementById('email-meta');
   meta.textContent = '載入中…';
-  const old = document.getElementById('gas-jsonp');
-  if(old) old.remove();
-  const timer = setTimeout(()=>{ meta.textContent = '連線失敗，請重試'; }, 12000);
-  window._gasCallback = function(data){
-    clearTimeout(timer);
-    if(data.error){ meta.textContent = '連線失敗，請重試'; console.error(data.error); return; }
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
     EMAILS = data.emails || [];
     renderEmails();
     updateEmailMeta();
     if(data.updated) meta.textContent = EMAILS.filter(e=>e.unread).length + ' 封未讀・' + data.updated + ' 更新';
-  };
-  const s = document.createElement('script');
-  s.id = 'gas-jsonp';
-  s.src = GAS_URL + '?callback=_gasCallback';
-  document.head.appendChild(s);
+  } catch(e) {
+    meta.textContent = '連線失敗，請重試';
+    console.error(e);
+  }
 }
 
 function scheduleEmailRefresh(){
