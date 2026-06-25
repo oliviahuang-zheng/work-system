@@ -123,16 +123,8 @@ body{font-family:-apple-system,'Helvetica Neue','PingFang TC',Arial,sans-serif;b
 /* ══════════════════════════════
    SECTION 2 · Email 收件匣
 ══════════════════════════════ */
-.email-wrap{display:flex;height:360px;}
-.email-sb{width:170px;flex-shrink:0;border-right:1px solid var(--border);padding:8px 0;background:var(--bg);overflow-y:auto;}
-.sb-group{font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--hint);padding:0 13px 3px;margin-top:9px;}
-.sb-row{display:flex;align-items:center;gap:7px;padding:6px 13px;font-size:12px;color:var(--muted);cursor:pointer;transition:background .1s,color .1s;}
-.sb-row:hover{background:#efefeb;color:var(--text);}
-.sb-row.active{background:var(--accent-bg);color:var(--accent);font-weight:600;}
-.sb-n{margin-left:auto;background:var(--border);color:var(--hint);border-radius:8px;padding:0 6px;font-size:10px;}
-.sb-n.alert{background:#fee2e2;color:var(--red);}
-
-.email-list-panel{width:260px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.email-wrap{display:flex;height:380px;}
+.email-list-panel{width:340px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
 .email-list-panel::-webkit-scrollbar{width:3px;}
 .email-list-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .el-head{padding:9px 13px 7px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1;flex-shrink:0;}
@@ -373,26 +365,17 @@ table.dt td{padding:5px 8px;border-bottom:1px solid var(--border);}
   <div class="section-head">
     <div class="section-label">
       <span class="bar" style="background:#2563eb"></span>
-      📬 Email 收件匣
+      📬 oliviahuang@wenk-media.com
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <span class="section-sub" id="email-meta">點擊重新整理</span>
+      <span class="section-sub" id="email-meta">載入中…</span>
+      <span style="font-size:10px;color:var(--hint);" id="email-next-refresh"></span>
       <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="loadEmails()">↻ 重新整理</button>
     </div>
   </div>
   <div class="email-wrap">
-    <div class="email-sb">
-      <div class="sb-group">信箱</div>
-      <div class="sb-row active" onclick="filterEmail('all',this)">📥 收件匣<span class="sb-n alert" id="sb-all">11</span></div>
-      <div class="sb-row" onclick="filterEmail('unread',this)">🔵 未讀<span class="sb-n" id="sb-unread">11</span></div>
-      <div class="sb-group">標籤</div>
-      <div class="sb-row" onclick="filterEmail('bid',this)">📌 標案快訊<span class="sb-n" id="sb-bid">0</span></div>
-      <div class="sb-row" onclick="filterEmail('line',this)">💬 LINE 媒體<span class="sb-n" id="sb-line">0</span></div>
-      <div class="sb-row" onclick="filterEmail('system',this)">⚠️ 系統通知<span class="sb-n" id="sb-system">0</span></div>
-      <div class="sb-row" onclick="filterEmail('other',this)">📁 其他<span class="sb-n" id="sb-other">0</span></div>
-    </div>
     <div class="email-list-panel">
-      <div class="el-head"><span id="el-title">收件匣</span><span class="el-cnt" id="el-cnt">11 封未讀</span></div>
+      <div class="el-head"><span>收件匣</span><span class="el-cnt" id="el-cnt"></span></div>
       <div id="email-rows"></div>
     </div>
     <div class="email-ph" id="email-ph">
@@ -528,7 +511,7 @@ const clsColorMap = {
 // ══════════════════════════════════════════════════════
 // EMAILS
 // ══════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz6y34hJMKPHXPVUNscFiIVink6EaDlRMve3PIa4n6KpkqGH4volS02axGl0Aft_K3ksg/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwG_-u3O6MW_sVk9WR8GwYN-yD6UhSr0VHHXRCH7FaWFIexneX9jDNYdFvXbVIN1TY/exec';
 let EMAILS = [];
 
 async function loadEmails(){
@@ -539,13 +522,37 @@ async function loadEmails(){
     const data = await res.json();
     if(data.error) throw new Error(data.error);
     EMAILS = data.emails || [];
-    renderEmails(emailFilter);
+    renderEmails();
     updateEmailMeta();
     if(data.updated) meta.textContent = (EMAILS.filter(e=>e.unread).length) + ' 封未讀・' + data.updated + ' 更新';
   } catch(e) {
-    meta.textContent = '載入失敗，請重試';
+    meta.textContent = '連線失敗，請重試';
     console.error(e);
   }
+}
+
+function scheduleEmailRefresh(){
+  const tz = 'Asia/Taipei';
+  const nowTW = new Date(new Date().toLocaleString('en-US',{timeZone:tz}));
+  const targets = [9, 19];
+  let minDiff = null;
+  for(const h of targets){
+    const t = new Date(nowTW);
+    t.setHours(h,0,0,0);
+    const diff = t - nowTW;
+    if(diff > 0 && (minDiff === null || diff < minDiff)) minDiff = diff;
+  }
+  if(minDiff === null){
+    const tmr = new Date(nowTW);
+    tmr.setDate(tmr.getDate()+1);
+    tmr.setHours(9,0,0,0);
+    minDiff = tmr - nowTW;
+  }
+  const nextHour = new Date(nowTW.getTime() + minDiff);
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('email-next-refresh').textContent =
+    '下次自動更新 ' + pad(nextHour.getHours()) + ':' + pad(nextHour.getMinutes());
+  setTimeout(()=>{loadEmails();scheduleEmailRefresh();}, minDiff);
 }
 
 let emailFilter = 'all';
@@ -710,16 +717,12 @@ function closeModalDirect(){document.getElementById('modal').classList.remove('o
 // ══════════════════════════════════════════════════════
 const catLbl={bid:{cls:'lbl-bid',txt:'標案'},line:{cls:'lbl-line',txt:'LINE'},system:{cls:'lbl-sys',txt:'⚠️'},other:{cls:'lbl-other',txt:'其他'}};
 
-function renderEmails(f){
-  emailFilter=f;
-  const list=f==='all'?EMAILS:f==='unread'?EMAILS.filter(e=>e.unread):EMAILS.filter(e=>e.cat===f);
-  const titles={all:'收件匣',unread:'未讀',bid:'標案快訊',line:'LINE 媒體',system:'系統通知',other:'其他'};
-  document.getElementById('el-title').textContent=titles[f]||'收件匣';
-  const unread=list.filter(e=>e.unread).length;
-  document.getElementById('el-cnt').textContent=unread+' 封未讀';
-  document.getElementById('email-rows').innerHTML=list.map(e=>{
-    const lb=catLbl[e.cat];
-    return`<div class="email-row ${e.unread?'unread':''} ${activeEmailId===e.id?'active':''}" onclick="openEmail('${e.id}')">
+function renderEmails(){
+  const unread=EMAILS.filter(e=>e.unread).length;
+  document.getElementById('el-cnt').textContent=EMAILS.length+' 封・'+unread+' 未讀';
+  document.getElementById('email-rows').innerHTML=EMAILS.length===0
+    ?'<div style="padding:24px;text-align:center;color:var(--hint);font-size:12px;">尚無信件</div>'
+    :EMAILS.map(e=>`<div class="email-row ${e.unread?'unread':''} ${activeEmailId===e.id?'active':''}" onclick="openEmail('${e.id}')">
       <div class="er-dot ${e.unread?'':'read'}"></div>
       <div class="er-info">
         <div class="er-from">${e.from}</div>
@@ -728,10 +731,9 @@ function renderEmails(f){
       </div>
       <div class="er-meta">
         <div class="er-time">${e.date}</div>
-        ${lb?`<span class="er-lbl ${lb.cls}">${lb.txt}</span>`:''}
+        <div class="er-time">${e.time}</div>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
 
 function openEmail(id){
@@ -750,19 +752,10 @@ function closeDetail(){
   document.getElementById('email-ph').style.display='flex';
   renderEmails(emailFilter);
 }
-function filterEmail(f,el){
-  document.querySelectorAll('.sb-row').forEach(i=>i.classList.remove('active'));
-  el.classList.add('active');renderEmails(f);
-}
 function replyDraft(){toast('回覆草稿功能開發中');}
 function updateEmailMeta(){
   const n=EMAILS.filter(e=>e.unread).length;
-  document.getElementById('sb-all').textContent=EMAILS.length;
-  document.getElementById('sb-unread').textContent=n;
-  ['bid','line','system','other'].forEach(cat=>{
-    const el=document.getElementById('sb-'+cat);
-    if(el) el.textContent=EMAILS.filter(e=>e.cat===cat).length;
-  });
+  document.getElementById('email-meta').textContent=n+' 封未讀';
 }
 
 // ══════════════════════════════════════════════════════
@@ -968,6 +961,7 @@ updateClock();setInterval(updateClock,1000);
 render();
 renderProjects();
 loadEmails();
+scheduleEmailRefresh();
 </script>
 </body>
 </html>
